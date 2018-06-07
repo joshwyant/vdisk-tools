@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Text;
 
 namespace OSDevelopment.DiskImages
 {
     static class FileCompression
     {
+        static byte[] sector = new byte[512];
+        
+#if !NETSTANDARD2_0
         const uint FSCTL_SET_COMPRESSION = 639040;
         const uint FSCTL_SET_SPARSE = 590020;
         const uint FSCTL_SET_ZERO_DATA = 622792;
-        static byte[] sector = new byte[512];
         [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "DeviceIoControl")]
         private static extern bool SetCompression(IntPtr hDevice, uint dwControlCode, ref ushort val1, int int2, IntPtr zero1, int zero, out int bytesretd, IntPtr zero2);
         [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "DeviceIoControl")]
@@ -23,23 +27,34 @@ namespace OSDevelopment.DiskImages
             public long end;
             public zeroinfo(long s, long e) { begin = s; end = e; }
         }
+#endif
         // Compresses the file amd sets its compression attribute.
         public static void CompressStream(System.IO.FileStream fs)
         {
+#if !NETSTANDARD2_0
             ushort t = 1;
             int retd;
             SetCompression(fs.SafeFileHandle.DangerousGetHandle(), FSCTL_SET_COMPRESSION, ref t, 2, IntPtr.Zero, 0, out retd, IntPtr.Zero);
+#endif
         }
         // Sets the file's sparse file attribute.
         public static void SetSparse(System.IO.FileStream fs)
         {
+#if !NETSTANDARD2_0
             int retd;
             SetSparse(fs.SafeFileHandle.DangerousGetHandle(), FSCTL_SET_SPARSE, IntPtr.Zero, 0, IntPtr.Zero, 0, out retd, IntPtr.Zero);
+#endif
         }
         // Writes zeros to a file stream, with space advantage on compressed and sparse files.
         public static void WriteZeros(System.IO.FileStream fs, long begin, long end)
         {
-            // Hopefully this works as expected, it's hard to get this working right over the .NET framework
+#if NETSTANDARD2_0
+            if (fs.Length < end)
+            {
+                fs.SetLength(end); // Just extend the length of the file
+            }
+#else
+// Hopefully this works as expected, it's hard to get this working right over the .NET framework
 
             fs.Flush(); // So that ALL of the buffers are cleared and written to the file.
             zeroinfo zi = new zeroinfo();
@@ -60,6 +75,7 @@ namespace OSDevelopment.DiskImages
             zi.end = end;
             SetZeroData(hndl, FSCTL_SET_ZERO_DATA, ref zi, 16, IntPtr.Zero, 0, out retd, IntPtr.Zero);
             fs.Position = end;
+#endif
         }
         public static void WriteZeros(System.IO.Stream s, long begin, long end)
         {
@@ -142,11 +158,20 @@ namespace OSDevelopment.DiskImages
         }
         static void FormatDiskImage(System.IO.Stream s, FATFormatInfo fi, bool MustInitialize)
         {
+            var assembly = typeof(FATFormatter).GetTypeInfo().Assembly;
+            byte[] bootsect;
+            using (var stream = assembly.GetManifestResourceStream(fi.Type == FATType.FAT32
+                ? "OSDevelopment.Resources.bootsect32"
+                : "OSDevelopment.Resources.bootsect16"))
+            {
+                bootsect = new byte[stream.Length];
+                stream.Read(bootsect, 0, (int)stream.Length);
+            }
             if (!s.CanWrite || !s.CanSeek) throw new System.IO.IOException();
             if (fi.Type == FATType.None) fi.Type = DefaultFatType(fi.TotalSectors);
             if (fi.Type != FATType.FAT16 && fi.Type != FATType.FAT32) throw new NotSupportedException();
             if (!ValidFatType(fi.Type, fi.TotalSectors)) throw new FATException("Invalid type of FAT, given sector count.");
-            if (fi.BootSector == null) fi.BootSector = fi.Type == FATType.FAT32 ? Properties.Resources.bootsect32 : Properties.Resources.bootsect16;
+            if (fi.BootSector == null) fi.BootSector = bootsect;
             s.Seek(0, System.IO.SeekOrigin.Begin);
             System.IO.BinaryWriter bw = new System.IO.BinaryWriter(s);
             // Get sectors per cluster
@@ -268,7 +293,13 @@ namespace OSDevelopment.DiskImages
                             bw.Write("NO NAME    ".ToCharArray());
                         bw.Write("FAT32   ".ToCharArray());
                         s.Seek(pos + 512, System.IO.SeekOrigin.Begin);
-                        s.Write(Properties.Resources.fsinfo, 0, 512);
+                        byte[] fsinfo;
+                        using (var stream = assembly.GetManifestResourceStream("OSDevelopment.Resources.fsinfo"))
+                        {
+                            fsinfo = new byte[stream.Length];
+                            stream.Read(fsinfo, 0, (int)stream.Length);
+                        }
+                        s.Write(fsinfo, 0, 512);
                         s.Seek(510, System.IO.SeekOrigin.Current);
                         bw.Write((ushort)0xAA55); // so that all three sectors have 0xAA55
                     }

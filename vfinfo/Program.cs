@@ -49,7 +49,7 @@ namespace vfinfo
                         Console.WriteLine("First cluster:\t{0}", fi.FirstCluster);
                         Console.WriteLine("Creation date:\t{0} {1}", fi.CreateTime.ToLongDateString(), fi.CreateTime.ToLongTimeString());
                         Console.WriteLine("Modified date:\t{0} {1}", fi.LastWriteTime.ToLongDateString(), fi.LastWriteTime.ToLongTimeString());
-                        Console.WriteLine("  Access date:\t{0}", fi.LastAccessDate.ToLongDateString());
+                        Console.WriteLine($"  Access date:\t{fi.LastAccessDate.ToLongDateString()}");
                         fatvol.Close();
                     }
                     catch (Exception e)
