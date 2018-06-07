@@ -131,11 +131,6 @@ namespace vmkimg
                 Console.WriteLine("Formatting as {0}...", t);
                 FATFormatter.CreateDiskImage(image, fi);
                 Console.WriteLine("Format complete.");
-#if DEBUG
-                Console.Write("Press any key to continue...");
-                Console.ReadKey(true);
-                Console.WriteLine();
-#endif
             }
             catch (Exception e)
             {
