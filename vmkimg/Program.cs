@@ -34,14 +34,6 @@ namespace vmkimg
         }
         static int Main(string[] args)
         {
-#if DEBUG
-            switch (0)
-            {
-                case 0:
-                    args = new string[] { "-i", "C:\\abc.img", "-M", "512", "-h", "16", "-s", "63", "-t", "FAT16", "-v", "myos" };
-                    break;
-            }
-#endif
             if (args[0] == "--help")
             {
                 ShowHelp();
