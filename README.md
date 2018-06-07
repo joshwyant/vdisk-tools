@@ -9,3 +9,23 @@ In 2018 (10 years later), I published the tools to github, converted the command
 and published a docker image (https://hub.docker.com/r/joshwyant/vdisk-tools/). 
 
 The docker image doesn't contain the GUI.
+
+Example usage (taken from myos):
+
+```bash
+echo creating disk image...
+vmkimg -i hdd.img -M $DISKSIZE -b bin/bootsect -t $DISKTYPE>>/dev/zero
+
+echo copying files...
+vput hdd.img ./bin/osldr /osldr
+vmkdir hdd.img /system/bin
+vput hdd.img ./bin/kernel /system/bin/kernel
+vput hdd.img ./bin/shell /system/bin/shell
+vput hdd.img ./bin/vesadrvr.o /system/bin/vesadrvr.o
+
+echo setting attributes...
+vattr hdd.img /osldr rhs
+vattr hdd.img /system/bin/kernel rs
+vattr hdd.img /system/bin/shell rs
+vattr hdd.img /system/bin/vesadrvr.o rs
+```
